@@ -1,5 +1,7 @@
 # Opencoil
 
+![picture](mold/thermoformed-adaptor.jpg)
+
 Goodies to produce your own e-scooter add-ons.
 
 * Coil: what coils do you need to harness the power of wireless energy in the wild?
