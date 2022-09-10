@@ -4,7 +4,13 @@
 
 ![picture](https://git.vvvvvvaria.org/then/opencoil-paracity/raw/branch/master/electronics/esp-wireless-charging-pcb/pcb-ass.jpg)
 
-*Assembled pcb*
+*Assembled pcb v1*
+
+As of 2022 there is a PCB version 2 with extra breakout gpio pins, schematic [here](https://git.vvvvvvaria.org/then/opencoil-paracity/src/branch/master/electronics/esp-wireless-charging-v2/esp-wireless-charging.pdf)
+
+![picture](https://git.vvvvvvaria.org/then/opencoil-paracity/raw/branch/master/electronics/esp-wireless-charging-v2/pinoutsv2.jpg)
+
+*Assembled pcb v2*
 
 ### Bill of Materials 
 
