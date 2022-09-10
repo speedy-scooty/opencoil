@@ -1,0 +1,115 @@
+  // Captive portal with (arduino) OTA + SPIFFS
+  
+  #include <Arduino.h>
+  #include <ESP8266WiFi.h>
+  #include <ESP8266mDNS.h>
+  #include <WiFiUdp.h>
+  #include <ArduinoOTA.h> // Over-the-Air updates
+  #include <ESP8266WebServer.h>
+  #include "./DNSServer.h" // Dns server
+  #include <FS.h> // SPIFFS
+  
+  DNSServer dnsServer;
+  const byte DNS_PORT = 53;
+  
+  ESP8266WebServer server(80);
+
+  #ifndef STASSID
+  #define STASSID "\xF0\x9F\x9B\xB4 beta"
+  //#define STASPSK "mypassword"
+  #endif
+
+  IPAddress apIP(192, 168, 4, 1);
+  const char* ssid = STASSID;
+  //const char* password = STAPSK; 
+
+  void setup() {
+    Serial.begin(115200);
+    Serial.println("Booting");
+
+    WiFi.mode(WIFI_AP);
+    WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+    WiFi.softAP(ssid);
+    dnsServer.start(DNS_PORT, "*", apIP); // redirect dns request to AP ip
+    
+    MDNS.begin("esp8266", WiFi.softAPIP());
+    Serial.println("Ready");
+    Serial.print("IP address: ");
+    Serial.println(WiFi.softAPIP());
+
+    //Over-the-Air updates
+    ArduinoOTA.setHostname("ESP8266");
+    //ArduinoOTA.setPassword("change-me"); //enabling password disables SPIFFS upload
+    ArduinoOTA.begin();
+    SPIFFS.begin();
+
+    //close the captive portal screen on ios!
+    server.on("/CONNECT", closeCNAdelay);
+
+    //if page is not found, redirect traffic to index.html (cheap way to redirect all traffic to our lading page)
+    server.onNotFound([]() {
+      if(!handleFileRead(server.uri())){
+        const char *metaRefreshStr = "<head><meta http-equiv=\"refresh\" content=\"0; url=http://192.168.4.1/index.html\" /></head><body><p>redirecting...</p></body>";
+        server.send(200, "text/html", metaRefreshStr);
+      }
+    });
+  
+    server.begin();
+
+  }
+
+  void loop() {
+    dnsServer.processNextRequest();
+    ArduinoOTA.handle();
+    server.handleClient();
+    delay(50);
+  }
+
+
+String getContentType(String filename){
+  if(server.hasArg("download")) return "application/octet-stream";
+  else if(filename.endsWith(".htm")) return "text/html";
+  else if(filename.endsWith(".html")) return "text/html";
+  else if(filename.endsWith(".css")) return "text/css";
+  else if(filename.endsWith(".js")) return "application/javascript";
+  else if(filename.endsWith(".png")) return "image/png";
+  else if(filename.endsWith(".gif")) return "image/gif";
+  else if(filename.endsWith(".jpg")) return "image/jpeg";
+  else if(filename.endsWith(".ico")) return "image/x-icon";
+  else if(filename.endsWith(".xml")) return "text/xml";
+  else if(filename.endsWith(".mp4")) return "video/mp4";
+  else if(filename.endsWith(".pdf")) return "application/x-pdf";
+  else if(filename.endsWith(".zip")) return "application/x-zip";
+  else if(filename.endsWith(".gz")) return "application/x-gzip";
+  return "text/plain";
+}
+
+//Given a file path, look for it in the SPIFFS file storage. Returns true if found, returns false if not found.
+bool handleFileRead(String path){
+  if(path.endsWith("/")) path += "index.html";
+  String contentType = getContentType(path);
+  String pathWithGz = path + ".gz";
+  if(SPIFFS.exists(pathWithGz) || SPIFFS.exists(path)){
+    if(SPIFFS.exists(pathWithGz))
+      path += ".gz";
+    File file = SPIFFS.open(path, "r");
+    size_t sent = server.streamFile(file, contentType);
+    file.close();
+    return true;
+  }
+  return false;
+}
+
+void handleAppleCaptivePortal() {
+  String Page = F("<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>");
+  server.sendHeader("Cache-Control","no-cache, no-store, must-revalidate");
+  server.sendHeader("Pragma", "no-cache");
+  server.sendHeader("Expires", "-1");
+  server.send(200, "text/html", Page);
+  return;
+  }
+  
+void closeCNAdelay(){
+   server.on("/hotspot-detect.html", handleAppleCaptivePortal);
+  return;
+}
